@@ -492,10 +492,7 @@ func TestGithub_ResolveLibrary(t *testing.T) {
 	expectedLibRefSpec := &app.LibraryConfig{
 		Name:     "alias",
 		Registry: "incubator",
-		GitVersion: &app.GitVersionSpec{
-			RefSpec:   "54321",
-			CommitSHA: "54321",
-		},
+		Version:  "54321",
 	}
 	assert.Equal(t, expectedLibRefSpec, libRefSpec)
 

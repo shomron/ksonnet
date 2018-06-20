@@ -32,7 +32,7 @@ import (
 func CacheDependency(a app.App, d pkg.Descriptor, customName string) error {
 	logger := log.WithFields(log.Fields{
 		"action":      "registry.CacheDependency",
-		"part":        d.Part,
+		"part":        d.Name,
 		"registry":    d.Registry,
 		"version":     d.Version,
 		"custom-name": customName,
@@ -73,7 +73,7 @@ func CacheDependency(a app.App, d pkg.Descriptor, customName string) error {
 	directories := []string{}
 	files := map[string][]byte{}
 	_, libRef, err := r.ResolveLibrary(
-		d.Part,
+		d.Name,
 		customName,
 		d.Version,
 		func(relPath string, contents []byte) error {

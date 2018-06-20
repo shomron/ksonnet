@@ -49,7 +49,7 @@ func Test_CacheDependency(t *testing.T) {
 		}
 		a.On("UpdateLib", "apache", library).Return(nil)
 
-		d := pkg.Descriptor{Registry: "incubator", Part: "apache"}
+		d := pkg.Descriptor{Registry: "incubator", Name: "apache"}
 
 		err := CacheDependency(a, d, "")
 		require.NoError(t, err)

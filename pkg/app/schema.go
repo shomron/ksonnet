@@ -284,6 +284,8 @@ type EnvironmentConfig struct {
 	// Targets contain the relative component paths that this environment
 	// wishes to deploy on it's destination.
 	Targets []string `json:"targets,omitempty"`
+	// Libraries specifies versioned libraries specifically used by this environment.
+	Libraries LibraryConfigs `json:"libraries,omitempty"`
 
 	isOverride bool
 }

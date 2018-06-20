@@ -354,10 +354,7 @@ func (gh *GitHub) ResolveLibrary(partName, partAlias, libRefSpec string, onFile 
 	refSpec := app.LibraryConfig{
 		Name:     partAlias,
 		Registry: gh.Name(),
-		GitVersion: &app.GitVersionSpec{
-			RefSpec:   libRefSpec,
-			CommitSHA: resolvedSHA,
-		},
+		Version:  resolvedSHA,
 	}
 
 	return parts, &refSpec, nil

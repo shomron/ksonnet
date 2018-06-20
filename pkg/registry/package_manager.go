@@ -53,7 +53,7 @@ func NewPackageManager(a app.App) PackageManager {
 
 // Find finds a package by name. Package names have the format `<registry>/<library>@<version>`.
 func (m *packageManager) Find(name string) (pkg.Package, error) {
-	d, err := pkg.ParseName(name)
+	d, err := pkg.Parse(name)
 	if err != nil {
 		return nil, errors.Wrap(err, "parsing package name")
 	}
@@ -92,12 +92,12 @@ func (m *packageManager) Find(name string) (pkg.Package, error) {
 		return nil, errors.Wrap(err, "reading libraries defined in the configuration")
 	}
 
-	libraryConfig, ok := libraryConfigs[d.Part]
+	libraryConfig, ok := libraryConfigs[d.Name]
 	if ok {
-		return m.loadPackage(registry.MakeRegistryConfig(), d.Part, d.Registry, libraryConfig.Version)
+		return m.loadPackage(registry.MakeRegistryConfig(), d.Name, d.Registry, libraryConfig.Version)
 	}
 
-	partConfig, err := registry.ResolveLibrarySpec(d.Part, d.Version)
+	partConfig, err := registry.ResolveLibrarySpec(d.Name, d.Version)
 	if err != nil {
 		return nil, err
 	}
