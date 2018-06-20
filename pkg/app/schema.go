@@ -313,6 +313,13 @@ type EnvironmentDestinationSpec struct {
 
 // LibraryConfig is the specification for a library part.
 type LibraryConfig struct {
+	Name     string `json:"name"`
+	Registry string `json:"registry"`
+	Version  string `json:"version"`
+}
+
+// 0.1.0 version of LibraryConfig
+type libraryConfigDeprecated struct {
 	Name       string          `json:"name"`
 	Registry   string          `json:"registry"`
 	Version    string          `json:"version"`
@@ -327,6 +334,59 @@ type GitVersionSpec struct {
 
 // LibraryConfigs is a mapping of a library configurations by name.
 type LibraryConfigs map[string]*LibraryConfig
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+// We implement some compatibility conversions.
+func (l *LibraryConfigs) UnmarshalJSON(b []byte) error {
+	var cfgs map[string]*LibraryConfig
+
+	if err := json.Unmarshal(b, &cfgs); err != nil {
+		return err
+	}
+
+	for k, v := range cfgs {
+		if v == nil {
+			continue
+		}
+
+		v.Name = k
+	}
+
+	*l = LibraryConfigs(cfgs)
+	return nil
+}
+
+// libraryConfig is an alias that allows us to leverage default JSON decoding
+// in our custom UnmarshalJSON handler without triggering infinite recursion.
+type libraryConfig LibraryConfig
+
+// UnmarshalJSON implements the json.Unmarshaler interface.
+// We implement some compatibility conversions.
+func (l *LibraryConfig) UnmarshalJSON(b []byte) error {
+	var cfg libraryConfig
+
+	if err := json.Unmarshal(b, &cfg); err != nil {
+		return err
+	}
+	*l = LibraryConfig(cfg)
+
+	// Check if there's any need for conversions
+	if cfg.Version != "" {
+		return nil
+	}
+
+	// Try to convert deprecated fields
+	var oldStyle libraryConfigDeprecated
+	if err := json.Unmarshal(b, &oldStyle); err != nil {
+		// This is best-effort, not an error
+		return nil
+	}
+	if oldStyle.GitVersion != nil {
+		l.Version = oldStyle.GitVersion.CommitSHA
+	}
+
+	return nil
+}
 
 // ContributorSpec is a specification for the project contributors.
 type ContributorSpec struct {
