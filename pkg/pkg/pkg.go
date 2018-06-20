@@ -16,10 +16,56 @@
 package pkg
 
 import (
+	"fmt"
+
 	"github.com/ksonnet/ksonnet/pkg/app"
 	"github.com/ksonnet/ksonnet/pkg/prototype"
 	"github.com/pkg/errors"
 )
+
+type pkg struct {
+	a              app.App
+	name           string
+	registryName   string
+	version        string
+	installChecker InstallChecker
+}
+
+// Name returns the name for the package.
+func (p *pkg) Name() string {
+	if p == nil {
+		return ""
+	}
+	return p.name
+}
+
+// RegistryName returns the registry name for the package.
+func (p *pkg) RegistryName() string {
+	if p == nil {
+		return ""
+	}
+	return p.registryName
+}
+
+// IsInstalled returns true if the package is installed.
+func (p *pkg) IsInstalled() (bool, error) {
+	if p == nil {
+		return false, errors.Errorf("nil receiver")
+	}
+	if p.installChecker == nil {
+		return false, errors.Errorf("nil installChecker")
+	}
+	return p.installChecker.IsInstalled(p.name)
+}
+
+// String implements Stringer
+func (p *pkg) String() string {
+	if p == nil {
+		return "nil"
+	}
+
+	return fmt.Sprintf("%v/%v@%v", p.registryName, p.name, p.version)
+}
 
 // InstallChecker checks if a package is installed.
 type InstallChecker interface {
@@ -64,4 +110,7 @@ type Package interface {
 
 	// Prototypes returns prototypes defined in the package.
 	Prototypes() (prototype.Prototypes, error)
+
+	// Path returns local directory for vendoring the package.
+	Path() string
 }

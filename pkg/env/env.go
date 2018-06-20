@@ -19,8 +19,13 @@ import (
 	"encoding/json"
 	"path/filepath"
 
+	utilio "github.com/ksonnet/ksonnet/pkg/util/io"
+
 	"github.com/ksonnet/ksonnet/pkg/app"
+	"github.com/ksonnet/ksonnet/pkg/registry"
 	"github.com/ksonnet/ksonnet/pkg/util/jsonnet"
+	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 )
 
@@ -215,4 +220,92 @@ func environmentsCode(a app.App, envName string) (string, error) {
 	}
 
 	return string(marshalledDestination), nil
+}
+
+// buildPackagePaths builds a set of version-specific package paths that should eventually be
+// available for import when evaluating an environment.
+func buildPackagePaths(a app.App, pm registry.PackageManager, e *app.EnvironmentConfig) (map[string]string, error) {
+	if a == nil {
+		return nil, errors.Errorf("nil app")
+	}
+	if pm == nil {
+		return nil, errors.Errorf("nil package manager")
+	}
+	if e == nil {
+		return nil, errors.Errorf("nil environment")
+	}
+
+	result := make(map[string]string)
+
+	pkgList, err := pm.PackagesForEnv(e)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, v := range pkgList {
+		result[v.Name()] = v.Path()
+	}
+	return result, nil
+}
+
+// Builds a vendor import path with the correct versions of referenced packages for
+// the specified environment.
+// The caller is responsible for calling the returned cleanup function to release
+// and temporary resources.
+func vendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentConfig) (path string, cleanup func() error, err error) {
+	log := log.WithField("action", "env.vendorPackages")
+
+	noop := func() error { return nil }
+
+	if a == nil {
+		return "", noop, errors.Errorf("nil app")
+	}
+	if pm == nil {
+		return "", nil, errors.Errorf("nil package manager")
+	}
+	if e == nil {
+		return "", noop, errors.Errorf("nil environment")
+	}
+	fs := a.Fs()
+	if fs == nil {
+		return "", noop, errors.Errorf("nil filesystem interface")
+	}
+
+	// Enumerate packages
+	pathByPkg, err := buildPackagePaths(a, pm, e)
+	if err != nil {
+		return "", noop, err
+	}
+
+	// Build our temporary space
+	tmpDir, err := afero.TempDir(fs, "", "ksvendor")
+	if err != nil {
+		return "", noop, errors.Wrap(err, "creating temporary vendor path")
+	}
+	shouldCleanup := true
+	cleanFunc := func() error {
+		if !shouldCleanup {
+			return nil
+		}
+
+		return fs.RemoveAll(tmpDir)
+	}
+	defer cleanFunc()
+
+	for k, v := range pathByPkg {
+		if v == "" {
+			log.Warnf("skipping package %v", k)
+			continue
+		}
+		dstPath := filepath.Join(tmpDir, k)
+		// if err := fs.Mkdir(path, app.DefaultFolderPermissions); err != nil {
+		// 	return "", noop, errors.Wrapf(err, "creating symlink %v", path)
+		// }
+		log.Debugf("preparing package %v->%v", v, dstPath)
+		utilio.CopyRecursive(fs, dstPath, v)
+
+		// TODO Copy Directory / Symlink here
+	}
+
+	return "", noop, errors.Errorf("not implemented")
 }

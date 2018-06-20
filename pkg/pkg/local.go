@@ -16,6 +16,7 @@
 package pkg
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -29,22 +30,20 @@ import (
 
 // Local is a package based on vendored contents.
 type Local struct {
-	a              app.App
-	name           string
-	registryName   string
-	config         *parts.Spec
-	installChecker InstallChecker
+	pkg
+	config *parts.Spec
 }
 
 var _ Package = (*Local)(nil)
 
 // NewLocal creates an instance of Local.
-func NewLocal(a app.App, name, registryName string, installChecker InstallChecker) (*Local, error) {
+func NewLocal(a app.App, name, registryName string, version string, installChecker InstallChecker) (*Local, error) {
 	if installChecker == nil {
 		installChecker = &DefaultInstallChecker{App: a}
 	}
 
-	partsPath := filepath.Join(a.VendorPath(), registryName, name, "parts.yaml")
+	versionedDir := buildPath(a, registryName, name, version)
+	partsPath := filepath.Join(versionedDir, "parts.yaml")
 	b, err := afero.ReadFile(a.Fs(), partsPath)
 	if err != nil {
 		return nil, errors.Wrap(err, "reading package configuration")
@@ -56,27 +55,16 @@ func NewLocal(a app.App, name, registryName string, installChecker InstallChecke
 	}
 
 	return &Local{
-		a:              a,
-		name:           name,
-		registryName:   registryName,
-		config:         config,
-		installChecker: installChecker,
+		pkg: pkg{
+			registryName: registryName,
+			name:         name,
+			version:      version,
+
+			a:              a,
+			installChecker: installChecker,
+		},
+		config: config,
 	}, nil
-}
-
-// Name returns the name for the package.
-func (l *Local) Name() string {
-	return l.name
-}
-
-// RegistryName returns the registry name for the package.
-func (l *Local) RegistryName() string {
-	return l.registryName
-}
-
-// IsInstalled returns true if the package is installed.
-func (l *Local) IsInstalled() (bool, error) {
-	return l.installChecker.IsInstalled(l.Name())
 }
 
 // Description returns the description for the package. The description
@@ -90,7 +78,7 @@ func (l *Local) Description() string {
 func (l *Local) Prototypes() (prototype.Prototypes, error) {
 	var prototypes prototype.Prototypes
 
-	protoPath := filepath.Join(l.a.VendorPath(), l.registryName, l.name, "prototypes")
+	protoPath := filepath.Join(l.Path(), "prototypes")
 	exists, err := afero.DirExists(l.a.Fs(), protoPath)
 	if err != nil {
 		return nil, err
@@ -124,4 +112,28 @@ func (l *Local) Prototypes() (prototype.Prototypes, error) {
 	}
 
 	return prototypes, nil
+}
+
+// buildPath returns local directory for vendoring a package.
+func buildPath(a app.App, registry string, name string, version string) string {
+	if a == nil || registry == "" || name == "" || version == "" {
+		return ""
+	}
+
+	// Construct package path: `vendor/<registry>/<pkg>@<version>`
+	versionedDir := fmt.Sprintf("%v@%v", name, version)
+	path := filepath.Join(a.VendorPath(), registry, versionedDir)
+	return path
+}
+
+// Path returns local directory for vendoring the package.
+func (l *Local) Path() string {
+	if l == nil {
+		return ""
+	}
+	if l.a == nil {
+		return ""
+	}
+
+	return buildPath(l.a, l.registryName, l.name, l.version)
 }
