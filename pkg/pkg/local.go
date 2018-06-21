@@ -46,7 +46,7 @@ func NewLocal(a app.App, name, registryName string, version string, installCheck
 	partsPath := filepath.Join(versionedDir, "parts.yaml")
 	b, err := afero.ReadFile(a.Fs(), partsPath)
 	if err != nil {
-		return nil, errors.Wrap(err, "reading package configuration")
+		return nil, errors.Wrapf(err, "reading package configuration from path: %v", partsPath)
 	}
 
 	config, err := parts.Unmarshal(b)
@@ -115,9 +115,15 @@ func (l *Local) Prototypes() (prototype.Prototypes, error) {
 }
 
 // buildPath returns local directory for vendoring a package.
+// TODO how should we handle unversioned packages and backwards-compatibilty?
 func buildPath(a app.App, registry string, name string, version string) string {
-	if a == nil || registry == "" || name == "" || version == "" {
+	if a == nil || registry == "" || name == "" {
 		return ""
+	}
+
+	// TODO is this the behavior we want?
+	if version == "" {
+		return filepath.Join(a.VendorPath(), registry, name)
 	}
 
 	// Construct package path: `vendor/<registry>/<pkg>@<version>`
