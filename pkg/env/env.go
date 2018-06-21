@@ -17,6 +17,7 @@ package env
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 
 	utilio "github.com/ksonnet/ksonnet/pkg/util/io"
@@ -222,8 +223,9 @@ func environmentsCode(a app.App, envName string) (string, error) {
 	return string(marshalledDestination), nil
 }
 
-// buildPackagePaths builds a set of version-specific package paths that should eventually be
-// available for import when evaluating an environment.
+// buildPackagePaths builds a set of version-specific package paths that
+// should be made available when applying an environment.
+// Return map keys are qualified package names (<registry>/<package>).
 func buildPackagePaths(pm registry.PackageManager, e *app.EnvironmentConfig) (map[string]string, error) {
 	if pm == nil {
 		return nil, errors.Errorf("nil package manager")
@@ -240,7 +242,8 @@ func buildPackagePaths(pm registry.PackageManager, e *app.EnvironmentConfig) (ma
 	}
 
 	for _, v := range pkgList {
-		result[v.Name()] = v.Path()
+		k := fmt.Sprintf("%s/%s", v.RegistryName(), v.Name())
+		result[k] = v.Path()
 	}
 	return result, nil
 }
@@ -297,7 +300,7 @@ func vendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentCon
 			log.Warnf("skipping package %v", k)
 			continue
 		}
-		dstPath := filepath.Join(tmpDir, k)
+		dstPath := filepath.Join(tmpDir, filepath.FromSlash(k))
 		log.Debugf("preparing package %v->%v", v, dstPath)
 		if err := utilio.CopyRecursive(fs, dstPath, v, app.DefaultFilePermissions, app.DefaultFolderPermissions); err != nil {
 			return "", noop, errors.Wrapf(err, "copying package %v->%v", v, dstPath)

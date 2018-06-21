@@ -258,19 +258,49 @@ func Test_upgradeArray(t *testing.T) {
 	test.AssertOutput(t, "upgradeArray/out.jsonnet", got)
 }
 
+// Helper for creating mock pkg.Package
+func makePackage(registry string, name string, version string, installed bool) pkg.Package {
+	p := new(pmocks.Package)
+	p.On("Name").Return(name)
+	p.On("RegistryName").Return(registry)
+	p.On("Version").Return(version)
+	p.On("IsInstalled").Return(installed)
+	p.On("Path").Return(
+		filepath.Join("/", "vendor", registry, fmt.Sprintf("%s@%s", name, version)),
+	)
+	return p
+}
+
 func Test_buildPackagePaths(t *testing.T) {
-	makePackage := func(registry string, name string, version string, installed bool) pkg.Package {
-		p := new(pmocks.Package)
-		p.On("Name").Return(name)
-		p.On("RegistryName").Return(registry)
-		p.On("Version").Return(version)
-		p.On("IsInstalled").Return(installed)
-		p.On("Path").Return(
-			filepath.Join("vendor", registry, fmt.Sprintf("%s@%s", name, version)),
-		)
-		return p
+	// Rig a package manager to return a fixed set of packages for the environment
+	r := "incubator"
+	e := &app.EnvironmentConfig{Name: "default"}
+	pkgByName := map[string]pkg.Package{
+		"incubator/nginx": makePackage(r, "nginx", "1.2.3", true),
+		"incubator/mysql": makePackage(r, "mysql", "00112233ff", true),
+	}
+	packages := make([]pkg.Package, 0, len(pkgByName))
+	for _, p := range pkgByName {
+		packages = append(packages, p)
+	}
+	pm := new(rmocks.PackageManager)
+	pm.On("PackagesForEnv", e).Return(packages, nil)
+
+	results, err := buildPackagePaths(pm, e)
+	require.NoError(t, err)
+
+	assert.Equal(t, len(pkgByName), len(results), "result length")
+	for name, path := range results {
+		p, ok := pkgByName[name]
+		assert.True(t, ok, "unexpected package: %v", name)
+		if p != nil {
+			assert.Equal(t, path, p.Path(), "package %v vendor path mismatch", name)
+		}
 	}
 
+}
+
+func Test_vendorPackages(t *testing.T) {
 	// Rig a package manager to return a fixed set of packages for the environment
 	r := "incubator"
 	e := &app.EnvironmentConfig{Name: "default"}
@@ -285,22 +315,33 @@ func Test_buildPackagePaths(t *testing.T) {
 	pm := new(rmocks.PackageManager)
 	pm.On("PackagesForEnv", e).Return(packages, nil)
 
-	// Stage some packages to copy
-	fs := afero.NewMemMapFs()
-	for _, p := range packages {
-		test.StageDir(t, fs, filepath.Join("packages", p.Name()), p.Path())
-	}
-
-	results, err := buildPackagePaths(pm, e)
-	require.NoError(t, err)
-
-	assert.Equal(t, len(pkgByName), len(results), "result length")
-	for name, path := range results {
-		p, ok := pkgByName[name]
-		assert.True(t, ok, "unexpected package: %v", name)
-		if p != nil {
-			assert.Equal(t, path, p.Path(), "package %v vendor path mismatch", name)
+	test.WithApp(t, "/", func(a *mocks.App, fs afero.Fs) {
+		// Stage some packages to copy
+		for _, p := range packages {
+			test.StageDir(t, fs, filepath.Join("packages", p.Name()), p.Path())
 		}
-	}
 
+		newRoot, cleanup, err := vendorPackages(a, pm, e)
+		if cleanup != nil {
+			defer cleanup()
+		}
+		require.NoError(t, err, "vendoring packages")
+		require.NotEmpty(t, newRoot, "vendored path")
+
+		// TODO check tempPath is not contained in original vendor path
+		//require.NotEqual(t, )
+
+		// Verify structure of copied packages (sans-version)
+		for _, p := range packages {
+			// Our assumption is that packages have been re-homed from their original
+			// path: `vendor/<registry>/<pkg>@<version>`
+			// to their unversioned temporary path:
+			// `<newRoot>/<registry>/<pkg>`
+			oldPath := p.Path()
+			newPath := filepath.Join(newRoot, p.RegistryName(), p.Name())
+			t.Logf("comparing paths %v and %v...", oldPath, newPath)
+			test.AssertDirectoriesMatch(t, fs, oldPath, newPath)
+		}
+
+	})
 }
