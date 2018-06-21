@@ -59,6 +59,20 @@ func (_m *Package) Name() string {
 	return r0
 }
 
+// Path provides a mock function with given fields:
+func (_m *Package) Path() string {
+	ret := _m.Called()
+
+	var r0 string
+	if rf, ok := ret.Get(0).(func() string); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	return r0
+}
+
 // Prototypes provides a mock function with given fields:
 func (_m *Package) Prototypes() (prototype.Prototypes, error) {
 	ret := _m.Called()

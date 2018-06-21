@@ -16,14 +16,19 @@
 package env
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 	"testing"
 
 	"github.com/ksonnet/ksonnet/pkg/app"
 	"github.com/ksonnet/ksonnet/pkg/app/mocks"
+	"github.com/ksonnet/ksonnet/pkg/pkg"
+	pmocks "github.com/ksonnet/ksonnet/pkg/pkg/mocks"
+	rmocks "github.com/ksonnet/ksonnet/pkg/registry/mocks"
 	"github.com/ksonnet/ksonnet/pkg/util/test"
 	"github.com/spf13/afero"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -251,4 +256,51 @@ func Test_upgradeArray(t *testing.T) {
 	require.NoError(t, err)
 
 	test.AssertOutput(t, "upgradeArray/out.jsonnet", got)
+}
+
+func Test_buildPackagePaths(t *testing.T) {
+	makePackage := func(registry string, name string, version string, installed bool) pkg.Package {
+		p := new(pmocks.Package)
+		p.On("Name").Return(name)
+		p.On("RegistryName").Return(registry)
+		p.On("Version").Return(version)
+		p.On("IsInstalled").Return(installed)
+		p.On("Path").Return(
+			filepath.Join("vendor", registry, fmt.Sprintf("%s@%s", name, version)),
+		)
+		return p
+	}
+
+	// Rig a package manager to return a fixed set of packages for the environment
+	r := "incubator"
+	e := &app.EnvironmentConfig{Name: "default"}
+	pkgByName := map[string]pkg.Package{
+		"nginx": makePackage(r, "nginx", "1.2.3", true),
+		"mysql": makePackage(r, "mysql", "00112233ff", true),
+	}
+	packages := make([]pkg.Package, 0, len(pkgByName))
+	for _, p := range pkgByName {
+		packages = append(packages, p)
+	}
+	pm := new(rmocks.PackageManager)
+	pm.On("PackagesForEnv", e).Return(packages, nil)
+
+	// Stage some packages to copy
+	fs := afero.NewMemMapFs()
+	for _, p := range packages {
+		test.StageDir(t, fs, filepath.Join("packages", p.Name()), p.Path())
+	}
+
+	results, err := buildPackagePaths(pm, e)
+	require.NoError(t, err)
+
+	assert.Equal(t, len(pkgByName), len(results), "result length")
+	for name, path := range results {
+		p, ok := pkgByName[name]
+		assert.True(t, ok, "unexpected package: %v", name)
+		if p != nil {
+			assert.Equal(t, path, p.Path(), "package %v vendor path mismatch", name)
+		}
+	}
+
 }

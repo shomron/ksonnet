@@ -224,10 +224,7 @@ func environmentsCode(a app.App, envName string) (string, error) {
 
 // buildPackagePaths builds a set of version-specific package paths that should eventually be
 // available for import when evaluating an environment.
-func buildPackagePaths(a app.App, pm registry.PackageManager, e *app.EnvironmentConfig) (map[string]string, error) {
-	if a == nil {
-		return nil, errors.Errorf("nil app")
-	}
+func buildPackagePaths(pm registry.PackageManager, e *app.EnvironmentConfig) (map[string]string, error) {
 	if pm == nil {
 		return nil, errors.Errorf("nil package manager")
 	}
@@ -272,7 +269,7 @@ func vendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentCon
 	}
 
 	// Enumerate packages
-	pathByPkg, err := buildPackagePaths(a, pm, e)
+	pathByPkg, err := buildPackagePaths(pm, e)
 	if err != nil {
 		return "", noop, err
 	}
@@ -282,7 +279,7 @@ func vendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentCon
 	if err != nil {
 		return "", noop, errors.Wrap(err, "creating temporary vendor path")
 	}
-	shouldCleanup := true
+	shouldCleanup := true // Used to decide whether we should cleanup in our defer or handoff responsibility to our callers
 	cleanFunc := func() error {
 		if !shouldCleanup {
 			return nil
@@ -292,20 +289,23 @@ func vendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentCon
 	}
 	defer cleanFunc()
 
+	// Copy each package to our temp directory destined for import,
+	// removing version information from the path.
+	// This allows our consumers to import the package with a version-agnostic import specifier.
 	for k, v := range pathByPkg {
 		if v == "" {
 			log.Warnf("skipping package %v", k)
 			continue
 		}
 		dstPath := filepath.Join(tmpDir, k)
-		// if err := fs.Mkdir(path, app.DefaultFolderPermissions); err != nil {
-		// 	return "", noop, errors.Wrapf(err, "creating symlink %v", path)
-		// }
 		log.Debugf("preparing package %v->%v", v, dstPath)
-		utilio.CopyRecursive(fs, dstPath, v)
-
-		// TODO Copy Directory / Symlink here
+		if err := utilio.CopyRecursive(fs, dstPath, v, app.DefaultFilePermissions, app.DefaultFolderPermissions); err != nil {
+			return "", noop, errors.Wrapf(err, "copying package %v->%v", v, dstPath)
+		}
 	}
 
-	return "", noop, errors.Errorf("not implemented")
+	// Signal to our deferred cleanup function that our caller is now
+	// the responsible party for cleaning up the temp directory.
+	shouldCleanup = false
+	return tmpDir, cleanFunc, nil
 }

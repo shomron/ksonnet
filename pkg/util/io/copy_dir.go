@@ -39,7 +39,7 @@ func CopyRecursive(fs afero.Fs, dst string, src string, fileMode os.FileMode, di
 		dstPath := filepath.Join(dst, relPath)
 
 		if info.IsDir() {
-			err := fs.MkdirAll(dstPath, fileMode)
+			err := fs.MkdirAll(dstPath, dirMode)
 			if err != nil {
 				return errors.Wrapf(err, "creating %v", dstPath)
 			}
