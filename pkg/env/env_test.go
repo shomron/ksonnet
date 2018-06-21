@@ -322,9 +322,16 @@ func Test_vendorPackages(t *testing.T) {
 		}
 
 		newRoot, cleanup, err := vendorPackages(a, pm, e)
-		if cleanup != nil {
-			defer cleanup()
-		}
+		defer func() {
+			if cleanup == nil {
+				return
+			}
+
+			cleanup()
+			exists, err := afero.DirExists(fs, newRoot)
+			assert.NoError(t, err, "checking cleanup")
+			assert.NotEqual(t, true, exists, "cleanup func did not remove directory: %v", newRoot)
+		}()
 		require.NoError(t, err, "vendoring packages")
 		require.NotEmpty(t, newRoot, "vendored path")
 

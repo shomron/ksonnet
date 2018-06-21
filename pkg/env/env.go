@@ -283,14 +283,14 @@ func vendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentCon
 		return "", noop, errors.Wrap(err, "creating temporary vendor path")
 	}
 	shouldCleanup := true // Used to decide whether we should cleanup in our defer or handoff responsibility to our callers
-	cleanFunc := func() error {
+	internalCleanFunc := func() error {
 		if !shouldCleanup {
 			return nil
 		}
 
 		return fs.RemoveAll(tmpDir)
 	}
-	defer cleanFunc()
+	defer internalCleanFunc()
 
 	// Copy each package to our temp directory destined for import,
 	// removing version information from the path.
@@ -310,5 +310,8 @@ func vendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentCon
 	// Signal to our deferred cleanup function that our caller is now
 	// the responsible party for cleaning up the temp directory.
 	shouldCleanup = false
-	return tmpDir, cleanFunc, nil
+	callerCleanFunc := func() error {
+		return fs.RemoveAll(tmpDir)
+	}
+	return tmpDir, callerCleanFunc, nil
 }
