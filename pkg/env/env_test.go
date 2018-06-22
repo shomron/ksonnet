@@ -221,6 +221,8 @@ func TestEvaluate(t *testing.T) {
 			},
 		}
 		a.On("Environment", "default").Return(envSpec, nil)
+		a.On("Libraries").Return(app.LibraryConfigs{}, nil)
+		a.On("Registries").Return(app.RegistryConfigs{}, nil)
 
 		test.StageFile(t, fs, "main.jsonnet", "/app/environments/default/main.jsonnet")
 

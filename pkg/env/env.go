@@ -135,6 +135,17 @@ func evaluateMain(a app.App, envName, snippet, components, paramsStr string) (st
 		libPath,
 	)
 
+	// Re-vendor versioned packages, such that import paths will remain path-agnostic.
+	// TODO Where should packagemanager come from?
+	pm := registry.NewPackageManager(a)
+	revendoredPath, cleanup, err := vendorPackages(a, pm, appEnv)
+	if err != nil {
+		return "", errors.Wrapf(err, "revendoring packages for environment: %v", envName)
+	}
+	defer cleanup()
+	vm.AddJPath(revendoredPath) // TODO does precedence matter?
+	// end re-vendor
+
 	if len(appEnv.Targets) == 0 {
 		vm.AddJPath(filepath.Join(a.Root(), "components"))
 	} else {
