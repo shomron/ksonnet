@@ -120,14 +120,30 @@ type remotePackage struct {
 var _ pkg.Package = (*remotePackage)(nil)
 
 func (p *remotePackage) Name() string {
+	if p.partConfig == nil {
+		return ""
+	}
 	return p.partConfig.Name
 }
 
 func (p *remotePackage) RegistryName() string {
+	if p.partConfig == nil {
+		return ""
+	}
 	return p.registryName
 }
 
+func (p *remotePackage) Version() string {
+	if p.partConfig == nil {
+		return ""
+	}
+	return p.partConfig.Version
+}
+
 func (p *remotePackage) Description() string {
+	if p.partConfig == nil {
+		return ""
+	}
 	return p.partConfig.Description
 }
 

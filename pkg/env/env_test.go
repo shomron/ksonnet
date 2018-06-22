@@ -276,8 +276,9 @@ func Test_buildPackagePaths(t *testing.T) {
 	r := "incubator"
 	e := &app.EnvironmentConfig{Name: "default"}
 	pkgByName := map[string]pkg.Package{
-		"incubator/nginx": makePackage(r, "nginx", "1.2.3", true),
-		"incubator/mysql": makePackage(r, "mysql", "00112233ff", true),
+		"incubator/nginx":       makePackage(r, "nginx", "1.2.3", true),
+		"incubator/mysql":       makePackage(r, "mysql", "00112233ff", true),
+		"incubator/unversioned": makePackage(r, "unversioned", "", true),
 	}
 	packages := make([]pkg.Package, 0, len(pkgByName))
 	for _, p := range pkgByName {
@@ -289,13 +290,22 @@ func Test_buildPackagePaths(t *testing.T) {
 	results, err := buildPackagePaths(pm, e)
 	require.NoError(t, err)
 
-	assert.Equal(t, len(pkgByName), len(results), "result length")
+	// Ensure all expected packages are in results and their paths match.
 	for name, path := range results {
 		p, ok := pkgByName[name]
 		assert.True(t, ok, "unexpected package: %v", name)
 		if p != nil {
 			assert.Equal(t, path, p.Path(), "package %v vendor path mismatch", name)
 		}
+	}
+
+	// Ensure all versioned packages are in the results.
+	for name, p := range pkgByName {
+		if p.Version() == "" {
+			// Unversioned packages are expected to have been filtered out of the results.
+			continue
+		}
+		assert.Contains(t, results, name, "expected package not in results")
 	}
 
 }

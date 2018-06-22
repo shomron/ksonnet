@@ -225,8 +225,12 @@ func environmentsCode(a app.App, envName string) (string, error) {
 
 // buildPackagePaths builds a set of version-specific package paths that
 // should be made available when applying an environment.
+// NOTE: we currently exclude unversioned packages, they can be picked
+//       up in the legacy location under the vendor directory.
 // Return map keys are qualified package names (<registry>/<package>).
 func buildPackagePaths(pm registry.PackageManager, e *app.EnvironmentConfig) (map[string]string, error) {
+	log := log.WithField("action", "env.buildPackagePaths")
+
 	if pm == nil {
 		return nil, errors.Errorf("nil package manager")
 	}
@@ -242,6 +246,10 @@ func buildPackagePaths(pm registry.PackageManager, e *app.EnvironmentConfig) (ma
 	}
 
 	for _, v := range pkgList {
+		if v.Version() == "" {
+			log.Debugf("skipping unversioned packaged: %v", v)
+			continue
+		}
 		k := fmt.Sprintf("%s/%s", v.RegistryName(), v.Name())
 		result[k] = v.Path()
 	}

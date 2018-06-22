@@ -47,6 +47,14 @@ func (p *pkg) RegistryName() string {
 	return p.registryName
 }
 
+// Version returns the package version, or empty string if the package is unversioned.
+func (p *pkg) Version() string {
+	if p == nil {
+		return ""
+	}
+	return p.version
+}
+
 // IsInstalled returns true if the package is installed.
 func (p *pkg) IsInstalled() (bool, error) {
 	if p == nil {
@@ -101,6 +109,9 @@ type Package interface {
 
 	// RegistryName returns the registry name of the package.
 	RegistryName() string
+
+	// Version returns the package version, or empty string if the package is unversioned.
+	Version() string
 
 	// IsInstalled returns true if the package is installed.
 	IsInstalled() (bool, error)
