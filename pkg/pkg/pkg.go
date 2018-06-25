@@ -111,7 +111,7 @@ func (ic *DefaultInstallChecker) IsInstalled(name string) (bool, error) {
 
 	var isLocal bool
 	for _, e := range envs {
-		_, isLocal := e.Libraries[name]
+		_, isLocal = e.Libraries[name]
 		if isLocal {
 			break
 		}
