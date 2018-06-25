@@ -99,14 +99,14 @@ func MainFile(a app.App, envName string) (string, error) {
 }
 
 // Evaluate evaluates an environment.
-func Evaluate(a app.App, envName, components, paramsStr string) (string, error) {
+func Evaluate(a app.App, envName, components, paramsStr string, opts ...jsonnet.VMOpt) (string, error) {
 
 	snippet, err := MainFile(a, envName)
 	if err != nil {
 		return "", err
 	}
 
-	evaluated, err := evaluateMain(a, envName, snippet, components, paramsStr)
+	evaluated, err := evaluateMain(a, envName, snippet, components, paramsStr, opts...)
 	if err != nil {
 		return "", err
 	}
@@ -114,7 +114,7 @@ func Evaluate(a app.App, envName, components, paramsStr string) (string, error) 
 	return upgradeArray(evaluated)
 }
 
-func evaluateMain(a app.App, envName, snippet, components, paramsStr string) (string, error) {
+func evaluateMain(a app.App, envName, snippet, components, paramsStr string, opts ...jsonnet.VMOpt) (string, error) {
 	libPath, err := a.LibPath(envName)
 	if err != nil {
 		return "", err
@@ -125,7 +125,7 @@ func evaluateMain(a app.App, envName, snippet, components, paramsStr string) (st
 		return "", err
 	}
 
-	vm := jsonnet.NewVM()
+	vm := jsonnet.NewVM(opts...)
 	vm.AddJPath(componentJPaths...)
 	vm.AddJPath(
 		filepath.Join(a.Root(), envRootName),
