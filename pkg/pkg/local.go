@@ -25,6 +25,7 @@ import (
 	"github.com/ksonnet/ksonnet/pkg/app"
 	"github.com/ksonnet/ksonnet/pkg/prototype"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/afero"
 )
 
@@ -38,13 +39,34 @@ var _ Package = (*Local)(nil)
 
 // NewLocal creates an instance of Local.
 func NewLocal(a app.App, name, registryName string, version string, installChecker InstallChecker) (*Local, error) {
+	log := log.WithField("action", "pkg.NewLocal")
+
 	if installChecker == nil {
 		installChecker = &DefaultInstallChecker{App: a}
 	}
 
 	versionedDir := buildPath(a, registryName, name, version)
-	partsPath := filepath.Join(versionedDir, "parts.yaml")
+	partsPath := filepath.Join(versionedDir, partsYAML)
 	b, err := afero.ReadFile(a.Fs(), partsPath)
+	if err != nil && version != "" {
+		// Fallback and retry with unversioned path
+		unversionedDir := buildPath(a, registryName, name, "")
+		unversionedPartsPath := filepath.Join(unversionedDir, partsYAML)
+
+		var err2 error
+		b, err2 = afero.ReadFile(a.Fs(), unversionedPartsPath)
+
+		if err2 != nil {
+			// Both paths failed, combine the errors and give up
+			return nil, errors.Wrapf(err, "reading package configuration from paths: %v, %v", partsPath, unversionedPartsPath)
+		}
+
+		// Fallback succeeded - clear out original error to allow processing to continue
+		err = nil
+
+		// Alert the user that the application should be upgraded
+		log.Warnf("Versioned package %s/%s@%s stored in unversioned path - please run `ks upgrade` to correct.", registryName, name, version)
+	}
 	if err != nil {
 		return nil, errors.Wrapf(err, "reading package configuration from path: %v", partsPath)
 	}
@@ -115,13 +137,16 @@ func (l *Local) Prototypes() (prototype.Prototypes, error) {
 }
 
 // buildPath returns local directory for vendoring a package.
-// TODO how should we handle unversioned packages and backwards-compatibilty?
+// This function supports both versioned and unversioned packages.
+//
+// Versioned pacakges use the following path template: `vendor/<registry>/<pkg>@<version>`
+// ...while unversioned packages use this: `vendor/<registry>/<pkg>`
 func buildPath(a app.App, registry string, name string, version string) string {
 	if a == nil || registry == "" || name == "" {
 		return ""
 	}
 
-	// TODO is this the behavior we want?
+	// For unversioned packages, fall back to old-style naming convension.
 	if version == "" {
 		return filepath.Join(a.VendorPath(), registry, name)
 	}

@@ -37,6 +37,69 @@ func withLocalPackage(t *testing.T, fn func(a *amocks.App, fs afero.Fs)) {
 	})
 }
 
+func TestLocal_New(t *testing.T) {
+	tests := []struct {
+		caseName   string
+		registry   string
+		name       string
+		version    string
+		srcPath    string
+		targetPath string
+		expectErr  bool
+	}{
+		{
+			caseName:   "package versioned, vendor path versioned",
+			registry:   "incubator",
+			name:       "apache",
+			version:    "1.2.3",
+			srcPath:    "incubator/apache",
+			targetPath: "/app/vendor/incubator/apache@1.2.3",
+			expectErr:  false,
+		},
+		{
+			caseName:   "package versioned, vendor path unversioned",
+			registry:   "incubator",
+			name:       "apache",
+			version:    "1.2.3",
+			srcPath:    "incubator/apache",
+			targetPath: "/app/vendor/incubator/apache",
+			expectErr:  false,
+		},
+		{
+			caseName:   "package unversioned, vendor path unversioned",
+			registry:   "incubator",
+			name:       "apache",
+			version:    "",
+			srcPath:    "incubator/apache",
+			targetPath: "/app/vendor/incubator/apache",
+			expectErr:  false,
+		},
+		{
+			caseName:   "package versioned, vendor path has wrong version",
+			registry:   "incubator",
+			name:       "apache",
+			version:    "1.2.3",
+			srcPath:    "incubator/apache",
+			targetPath: "/app/vendor/incubator/apache@4.5.6",
+			expectErr:  true,
+		},
+	}
+
+	for _, tc := range tests {
+		test.WithApp(t, "/app", func(a *amocks.App, fs afero.Fs) {
+			a.On("VendorPath").Return("/app/vendor")
+
+			test.StageDir(t, fs, tc.srcPath, tc.targetPath)
+			_, err := NewLocal(a, tc.name, tc.registry, tc.version, nil)
+			if tc.expectErr {
+				require.Error(t, err, tc.caseName)
+			} else {
+				require.NoError(t, err, tc.caseName)
+			}
+		})
+	}
+}
+
 func TestLocal_Name(t *testing.T) {
 	withLocalPackage(t, func(a *amocks.App, fs afero.Fs) {
 		l, err := NewLocal(a, "apache", "incubator", "", nil)

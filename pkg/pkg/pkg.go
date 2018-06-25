@@ -23,6 +23,10 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	partsYAML = "parts.yaml"
+)
+
 type pkg struct {
 	a              app.App
 	name           string
@@ -87,7 +91,7 @@ type DefaultInstallChecker struct {
 }
 
 // IsInstalled returns true if the package is installed. a package is installed if it
-// has a libraries entry in app.yaml.
+// has a libraries entry in app.yaml (globally or under an environment)
 func (ic *DefaultInstallChecker) IsInstalled(name string) (bool, error) {
 	if ic.App == nil {
 		return false, errors.New("app is nil")
@@ -98,7 +102,22 @@ func (ic *DefaultInstallChecker) IsInstalled(name string) (bool, error) {
 		return false, errors.Wrapf(err, "checking if package %q is installed", name)
 	}
 
-	_, isInstalled := libs[name]
+	_, isGlobal := libs[name]
+
+	envs, err := ic.App.Environments()
+	if err != nil {
+		return false, errors.Wrapf(err, "checking for package %q references in environments", name)
+	}
+
+	var isLocal bool
+	for _, e := range envs {
+		_, isLocal := e.Libraries[name]
+		if isLocal {
+			break
+		}
+	}
+
+	isInstalled := isGlobal || isLocal
 	return isInstalled, nil
 }
 
