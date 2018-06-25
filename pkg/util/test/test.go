@@ -132,7 +132,7 @@ func AssertOutput(t *testing.T, filename, actual string) {
 }
 
 // dumpFs logs the contents of an afero.Fs virtual filesystem interface.
-func dumpFs(t *testing.T, fs afero.Fs) {
+func DumpFs(t *testing.T, fs afero.Fs) {
 	if fs == nil {
 		return
 	}

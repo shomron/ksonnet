@@ -25,7 +25,9 @@ import (
 	"github.com/ksonnet/ksonnet/pkg/app/mocks"
 	"github.com/ksonnet/ksonnet/pkg/pkg"
 	pmocks "github.com/ksonnet/ksonnet/pkg/pkg/mocks"
+	"github.com/ksonnet/ksonnet/pkg/registry"
 	rmocks "github.com/ksonnet/ksonnet/pkg/registry/mocks"
+	"github.com/ksonnet/ksonnet/pkg/util/jsonnet"
 	"github.com/ksonnet/ksonnet/pkg/util/test"
 	"github.com/spf13/afero"
 	"github.com/stretchr/testify/assert"
@@ -37,6 +39,10 @@ func TestAddJPaths(t *testing.T) {
 		AddJPaths("/vendor")
 		require.Equal(t, []string{"/vendor"}, componentJPaths)
 	})
+}
+
+func TestJPathEmpty(t *testing.T) {
+	require.Empty(t, componentJPaths)
 }
 
 func TestAddExtVar(t *testing.T) {
@@ -236,6 +242,49 @@ func TestEvaluate(t *testing.T) {
 	})
 }
 
+func TestEvaluate_versionedPackages(t *testing.T) {
+	require.Empty(t, componentJPaths)
+
+	test.WithApp(t, "/app", func(a *mocks.App, fs afero.Fs) {
+		envSpec := &app.EnvironmentConfig{
+			Path: "default",
+			Destination: &app.EnvironmentDestinationSpec{
+				Server:    "http://example.com",
+				Namespace: "default",
+			},
+			Libraries: app.LibraryConfigs{
+				"printer": &app.LibraryConfig{
+					Name:     "printer",
+					Registry: "incubator",
+					Version:  "0.0.1",
+				},
+			},
+		}
+		a.On("Environment", "default").Return(envSpec, nil)
+		a.On("Libraries").Return(app.LibraryConfigs{}, nil)
+		a.On("Registries").Return(app.RegistryConfigs{
+			"incubator": &app.RegistryConfig{
+				Name:     "incubator",
+				Protocol: string(registry.ProtocolFilesystem),
+			},
+		}, nil)
+		a.On("VendorPath").Return("/app/vendor")
+
+		// Stage environment, packages
+		test.StageDir(t, fs, "versionedPackageApp/vendor", "/app/vendor")
+		test.StageDir(t, fs, "versionedPackageApp/environments", "/app/environments")
+		test.DumpFs(t, fs) // DELETEME
+
+		components, err := ioutil.ReadFile(filepath.FromSlash("testdata/versionedPackageApp/components/hello-world.jsonnet"))
+		require.NoError(t, err)
+
+		got, err := Evaluate(a, "default", string(components), "", jsonnet.AferoImporterOpt(fs))
+		require.NoError(t, err)
+
+		test.AssertOutput(t, "versionedPackageApp/expected.json", got)
+	})
+}
+
 func TestMainFile(t *testing.T) {
 	test.WithApp(t, "/app", func(a *mocks.App, fs afero.Fs) {
 		envSpec := &app.EnvironmentConfig{}
@@ -268,7 +317,7 @@ func makePackage(registry string, name string, version string, installed bool) p
 	p.On("Version").Return(version)
 	p.On("IsInstalled").Return(installed)
 	p.On("Path").Return(
-		filepath.Join("/", "vendor", registry, fmt.Sprintf("%s@%s", name, version)),
+		filepath.Join("/", "app", "vendor", registry, fmt.Sprintf("%s@%s", name, version)),
 	)
 	return p
 }

@@ -16,6 +16,8 @@
 package registry
 
 import (
+	"fmt"
+
 	"github.com/ksonnet/ksonnet/pkg/app"
 	"github.com/ksonnet/ksonnet/pkg/parts"
 	"github.com/ksonnet/ksonnet/pkg/pkg"
@@ -265,8 +267,8 @@ func (m *packageManager) loadPackage(registryConfig *app.RegistryConfig, pkgName
 
 		return l, nil
 	default:
-		return nil, errors.Errorf("library %q has a reference to unknown prototypes %q",
-			pkgName, protocol)
+		return nil, errors.Errorf("package %q - registry uses unknown protocol: %q",
+			fmt.Sprintf("%s/%s", registryName, pkgName), protocol)
 	}
 }
 
