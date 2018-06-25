@@ -138,7 +138,7 @@ func evaluateMain(a app.App, envName, snippet, components, paramsStr string, opt
 	// Re-vendor versioned packages, such that import paths will remain path-agnostic.
 	// TODO Where should packagemanager come from?
 	pm := registry.NewPackageManager(a)
-	revendoredPath, cleanup, err := vendorPackages(a, pm, appEnv)
+	revendoredPath, cleanup, err := revendorPackages(a, pm, appEnv)
 	if err != nil {
 		return "", errors.Wrapf(err, "revendoring packages for environment: %v", envName)
 	}
@@ -271,7 +271,7 @@ func buildPackagePaths(pm registry.PackageManager, e *app.EnvironmentConfig) (ma
 // the specified environment.
 // The caller is responsible for calling the returned cleanup function to release
 // and temporary resources.
-func vendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentConfig) (path string, cleanup func() error, err error) {
+func revendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentConfig) (path string, cleanup func() error, err error) {
 	log := log.WithField("action", "env.vendorPackages")
 
 	noop := func() error { return nil }

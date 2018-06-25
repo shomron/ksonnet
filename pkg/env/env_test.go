@@ -361,7 +361,7 @@ func Test_buildPackagePaths(t *testing.T) {
 
 }
 
-func Test_vendorPackages(t *testing.T) {
+func Test_revendorPackages(t *testing.T) {
 	// Rig a package manager to return a fixed set of packages for the environment
 	r := "incubator"
 	e := &app.EnvironmentConfig{Name: "default"}
@@ -382,7 +382,7 @@ func Test_vendorPackages(t *testing.T) {
 			test.StageDir(t, fs, filepath.Join("packages", p.Name()), p.Path())
 		}
 
-		newRoot, cleanup, err := vendorPackages(a, pm, e)
+		newRoot, cleanup, err := revendorPackages(a, pm, e)
 		defer func() {
 			if cleanup == nil {
 				return
@@ -393,11 +393,10 @@ func Test_vendorPackages(t *testing.T) {
 			assert.NoError(t, err, "checking cleanup")
 			assert.NotEqual(t, true, exists, "cleanup func did not remove directory: %v", newRoot)
 		}()
-		require.NoError(t, err, "vendoring packages")
+		require.NoError(t, err, "revendoring packages")
 		require.NotEmpty(t, newRoot, "vendored path")
 
 		// TODO check tempPath is not contained in original vendor path
-		//require.NotEqual(t, )
 
 		// Verify structure of copied packages (sans-version)
 		for _, p := range packages {
