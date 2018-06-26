@@ -211,7 +211,7 @@ func TestGithub_FetchRegistrySpec_nocache(t *testing.T) {
 	require.NoError(t, err)
 
 	expected := &Spec{
-		APIVersion: "0.1.0",
+		APIVersion: DefaultAPIVersion,
 		Kind:       "ksonnet.io/registry",
 		Version:    "12345",
 		Libraries: LibraryConfigs{

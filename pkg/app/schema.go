@@ -29,7 +29,7 @@ import (
 
 const (
 	// DefaultAPIVersion is the default ks API version to use if not specified.
-	DefaultAPIVersion = "0.1.0"
+	DefaultAPIVersion = "0.2.0"
 	// Kind is the schema resource type.
 	Kind = "ksonnet.io/app"
 	// DefaultVersion is the default version of the app schema.
@@ -48,6 +48,21 @@ var (
 	// ErrEnvironmentNotExists is the error when trying to update an environment that doesn't exist.
 	ErrEnvironmentNotExists = fmt.Errorf("Environment with name doesn't exist")
 )
+
+var (
+	compatibleAPIRangeStrings = []string{
+		">= 0.0.1 <= 0.2.0",
+	}
+	compatibleAPIRanges = mustCompileRanges()
+)
+
+func mustCompileRanges() []semver.Range {
+	result := make([]semver.Range, 0, len(compatibleAPIRangeStrings))
+	for _, s := range compatibleAPIRangeStrings {
+		result = append(result, semver.MustParseRange(s))
+	}
+	return result
+}
 
 // Spec defines all the ksonnet project metadata. This includes details such as
 // the project name, authors, environments, and registries.
@@ -452,17 +467,23 @@ func (s *Spec) validate() error {
 		return errors.New("invalid version")
 	}
 
-	compatVer, _ := semver.Make(DefaultAPIVersion)
 	ver, err := semver.Make(s.APIVersion)
 	if err != nil {
 		return errors.Wrap(err, "Failed to parse version in app spec")
 	}
 
-	if compatVer.Compare(ver) < 0 {
+	var compatible bool
+	for _, compatRange := range compatibleAPIRanges {
+		if compatRange(ver) {
+			compatible = true
+		}
+	}
+
+	if !compatible {
 		return fmt.Errorf(
 			"Current app uses unsupported spec version '%s' (this client only supports %s)",
 			s.APIVersion,
-			DefaultAPIVersion)
+			compatibleAPIRangeStrings)
 	}
 
 	return nil

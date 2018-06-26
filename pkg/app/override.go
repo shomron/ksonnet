@@ -26,7 +26,7 @@ const (
 	// overrideKind is the override resource type.
 	overrideKind = "ksonnet.io/app-override"
 	// overrideVersion is the version of the override resource.
-	overrideVersion = "0.1.0"
+	overrideVersion = "0.2.0"
 )
 
 // Override defines overrides to ksonnet project configurations.

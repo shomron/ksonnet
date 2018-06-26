@@ -327,6 +327,7 @@ func (gh *GitHub) ResolveLibrary(partName, partAlias, libRefSpec string, onFile 
 	}
 
 	// Resolve app spec.
+	// TODO we just downloaded this above - why download again?
 	appSpecPath := strings.Join([]string{path, partsYAMLFile}, "/")
 	ctx = context.Background()
 	file, directory, err := gh.ghClient.Contents(ctx, gh.hd.Repo(), appSpecPath, resolvedSHA)
