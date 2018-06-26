@@ -272,7 +272,7 @@ func buildPackagePaths(pm registry.PackageManager, e *app.EnvironmentConfig) (ma
 // The caller is responsible for calling the returned cleanup function to release
 // and temporary resources.
 func revendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentConfig) (path string, cleanup func() error, err error) {
-	log := log.WithField("action", "env.vendorPackages")
+	log := log.WithField("action", "env.revendorPackages")
 
 	noop := func() error { return nil }
 

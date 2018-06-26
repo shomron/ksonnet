@@ -255,11 +255,16 @@ func (r *RegistryConfigs) UnmarshalJSON(b []byte) error {
 	}
 
 	// Set Name fields according to map keys
+	result := RegistryConfigs{}
 	for k, v := range registries {
+		if v == nil {
+			continue
+		}
 		v.Name = k
+		result[k] = v
 	}
 
-	*r = RegistryConfigs(registries)
+	*r = result
 	return nil
 }
 
@@ -276,11 +281,16 @@ func (e *EnvironmentConfigs) UnmarshalJSON(b []byte) error {
 	}
 
 	// Set Name fields according to map keys
+	result := EnvironmentConfigs{}
 	for k, v := range envs {
+		if v == nil {
+			continue
+		}
 		v.Name = k
+		result[k] = v
 	}
 
-	*e = EnvironmentConfigs(envs)
+	*e = result
 	return nil
 }
 
@@ -361,15 +371,17 @@ func (l *LibraryConfigs) UnmarshalJSON(b []byte) error {
 		return err
 	}
 
+	result := LibraryConfigs{}
 	for k, v := range cfgs {
 		if v == nil {
 			continue
 		}
 
 		v.Name = k
+		result[k] = v
 	}
 
-	*l = LibraryConfigs(cfgs)
+	*l = result
 	return nil
 }
 

@@ -497,18 +497,18 @@ func TestGithub_ResolveLibrary(t *testing.T) {
 	assert.Equal(t, expectedLibRefSpec, libRefSpec)
 
 	expectedFiles := []string{
-		"incubator/apache/README.md",
-		"incubator/apache/apache.libsonnet",
-		"incubator/apache/examples/apache.jsonnet",
-		"incubator/apache/examples/generated.yaml",
-		"incubator/apache/parts.yaml",
-		"incubator/apache/prototypes/apache-simple.jsonnet",
+		"apache/README.md",
+		"apache/apache.libsonnet",
+		"apache/examples/apache.jsonnet",
+		"apache/examples/generated.yaml",
+		"apache/parts.yaml",
+		"apache/prototypes/apache-simple.jsonnet",
 	}
 	assert.Equal(t, expectedFiles, files)
 
 	expectedDirs := []string{
-		"incubator/apache/examples",
-		"incubator/apache/prototypes",
+		"apache/examples",
+		"apache/prototypes",
 	}
 	assert.Equal(t, expectedDirs, directories)
 }
