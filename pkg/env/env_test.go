@@ -18,6 +18,7 @@ package env
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -319,6 +320,9 @@ func makePackage(registry string, name string, version string, installed bool) p
 	p.On("Path").Return(
 		filepath.Join("/", "app", "vendor", registry, fmt.Sprintf("%s@%s", name, version)),
 	)
+	p.On("String").Return(
+		fmt.Sprintf("%s/%s@%s", registry, name, version),
+	)
 	return p
 }
 
@@ -366,8 +370,9 @@ func Test_revendorPackages(t *testing.T) {
 	r := "incubator"
 	e := &app.EnvironmentConfig{Name: "default"}
 	pkgByName := map[string]pkg.Package{
-		"nginx": makePackage(r, "nginx", "1.2.3", true),
-		"mysql": makePackage(r, "mysql", "00112233ff", true),
+		"nginx":     makePackage(r, "nginx", "1.2.3", true),
+		"mysql":     makePackage(r, "mysql", "00112233ff", true),
+		"not_there": makePackage(r, "not_there", "2.3.4", true),
 	}
 	packages := make([]pkg.Package, 0, len(pkgByName))
 	for _, p := range pkgByName {
@@ -379,8 +384,14 @@ func Test_revendorPackages(t *testing.T) {
 	test.WithApp(t, "/", func(a *mocks.App, fs afero.Fs) {
 		// Stage some packages to copy
 		for _, p := range packages {
-			test.StageDir(t, fs, filepath.Join("packages", p.Name()), p.Path())
+			srcPath := filepath.Join("packages", p.Name())
+			if _, err := os.Stat(filepath.Join("testdata", srcPath)); os.IsNotExist(err) {
+				// Skip staging missing packages
+				continue
+			}
+			test.StageDir(t, fs, srcPath, p.Path())
 		}
+		test.DumpFs(t, fs)
 
 		newRoot, cleanup, err := revendorPackages(a, pm, e)
 		defer func() {
@@ -406,6 +417,11 @@ func Test_revendorPackages(t *testing.T) {
 			// `<newRoot>/<registry>/<pkg>`
 			oldPath := p.Path()
 			newPath := filepath.Join(newRoot, p.RegistryName(), p.Name())
+
+			if ok, err := afero.Exists(fs, oldPath); !ok || err != nil {
+				t.Logf("skipping package %v, it was not staged", p)
+				continue
+			}
 			t.Logf("comparing paths %v and %v...", oldPath, newPath)
 			test.AssertDirectoriesMatch(t, fs, oldPath, newPath)
 		}

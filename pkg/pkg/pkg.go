@@ -143,4 +143,6 @@ type Package interface {
 
 	// Path returns local directory for vendoring the package.
 	Path() string
+
+	fmt.Stringer
 }
