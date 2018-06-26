@@ -314,15 +314,30 @@ func revendorPackages(a app.App, pm registry.PackageManager, e *app.EnvironmentC
 	// Copy each package to our temp directory destined for import,
 	// removing version information from the path.
 	// This allows our consumers to import the package with a version-agnostic import specifier.
-	for k, v := range pathByPkg {
-		if v == "" {
+	for k, srcPath := range pathByPkg {
+		if srcPath == "" {
 			log.Warnf("skipping package %v", k)
 			continue
 		}
+		// Check for missing package.
+		// There are two common causes:
+		// 1. It is installed but in an unversioned path - the app hasn't been upgraded.
+		// 2. It is actually missing - the vendor cache needs to be refreshed.
+		// Currently we assume #1 and skip revendoring - it can be imported from the legacy path.
+		ok, err := afero.Exists(fs, srcPath)
+		if err != nil {
+			return "", noop, err
+		}
+		if !ok {
+			// TODO differentiate between above cases #1 and #2.
+			log.Warnf("skipping missing path %v. Please run `ks upgrade`.", srcPath)
+			continue
+		}
+
 		dstPath := filepath.Join(tmpDir, filepath.FromSlash(k))
-		log.Debugf("preparing package %v->%v", v, dstPath)
-		if err := utilio.CopyRecursive(fs, dstPath, v, app.DefaultFilePermissions, app.DefaultFolderPermissions); err != nil {
-			return "", noop, errors.Wrapf(err, "copying package %v->%v", v, dstPath)
+		log.Debugf("preparing package %v->%v", srcPath, dstPath)
+		if err := utilio.CopyRecursive(fs, dstPath, srcPath, app.DefaultFilePermissions, app.DefaultFolderPermissions); err != nil {
+			return "", noop, errors.Wrapf(err, "copying package %v->%v", srcPath, dstPath)
 		}
 	}
 

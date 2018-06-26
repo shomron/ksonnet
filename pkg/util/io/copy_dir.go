@@ -32,6 +32,10 @@ func CopyRecursive(fs afero.Fs, dst string, src string, fileMode os.FileMode, di
 	}
 
 	return afero.Walk(fs, src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		relPath, err := filepath.Rel(src, path)
 		if err != nil {
 			return errors.Wrapf(err, "extracting relative path: %v, %v", src, path)
