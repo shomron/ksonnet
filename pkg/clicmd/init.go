@@ -105,7 +105,7 @@ ks init app-name --dir=custom-location`
 )
 
 func newInitCmd(fs afero.Fs, wd string) *cobra.Command {
-	clientConfig := client.NewDefaultClientConfig(nil)
+	clientConfig := client.NewDefaultClientConfig()
 
 	initCmd := &cobra.Command{
 		Use:     "init <app-name>",
@@ -127,7 +127,7 @@ func newInitCmd(fs afero.Fs, wd string) *cobra.Command {
 				return err
 			}
 
-			clientConfig := client.NewDefaultClientConfig(nil)
+			clientConfig := client.NewDefaultClientConfig()
 
 			server, namespace, err := resolveEnvFlags(flags, clientConfig)
 			if err != nil {
@@ -149,6 +149,7 @@ func newInitCmd(fs afero.Fs, wd string) *cobra.Command {
 				actions.OptionNamespace:             namespace,
 				actions.OptionSkipDefaultRegistries: viper.GetBool(vInitSkipDefaultRegistries),
 				actions.OptionTLSSkipVerify:         viper.GetBool(flagTLSSkipVerify),
+				actions.OptionSkipCheckUpgrade:      true,
 			}
 
 			return runAction(actionInit, m)

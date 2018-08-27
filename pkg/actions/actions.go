@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/ksonnet/ksonnet/pkg/app"
@@ -31,6 +32,8 @@ import (
 const (
 	// OptionApp is app option.
 	OptionApp = "app"
+	// OptionAppRoot is the root directory of the application.
+	OptionAppRoot = "app-root"
 	// OptionArguments is arguments option. Used for passing arguments to prototypes.
 	OptionArguments = "arguments"
 	// OptionAsString is asString. Used for setting values as strings.
@@ -67,6 +70,8 @@ const (
 	OptionGlobal = "global"
 	// OptionGracePeriod is gracePeriod option.
 	OptionGracePeriod = "grace-period"
+	// OptionHTTPClient is the http.Client for outbound network requests.
+	OptionHTTPClient = "http-client"
 	// OptionInstalled is for listing installed packages.
 	OptionInstalled = "only-installed"
 	// OptionJPaths is jsonnet paths.
@@ -100,6 +105,8 @@ const (
 	OptionServer = "server"
 	// OptionServerURI is serverURI option.
 	OptionServerURI = "server-uri"
+	// OptionSkipCheckUpgrade tells app not to emit upgrade warnings, probably because the user is already upgrading.
+	OptionSkipCheckUpgrade = "skip-check-upgrade"
 	// OptionSkipDefaultRegistries is skipDefaultRegistries option. Used by init.
 	OptionSkipDefaultRegistries = "skip-default-registries"
 	// OptionSkipGc is skipGc option.
@@ -185,15 +192,15 @@ func newOptionLoader(m map[string]interface{}) *optionLoader {
 	}
 }
 
-func (o *optionLoader) LoadFs(name string) afero.Fs {
-	i := o.load(name)
-	if i == nil {
-		return nil
+func (o *optionLoader) LoadFs() afero.Fs {
+	untyped := o.loadOptional(OptionFs)
+	if untyped == nil {
+		return afero.NewOsFs()
 	}
 
-	a, ok := i.(afero.Fs)
+	a, ok := untyped.(afero.Fs)
 	if !ok {
-		o.err = newInvalidOptionError(name)
+		o.err = newInvalidOptionError(OptionFs)
 		return nil
 	}
 
@@ -332,17 +339,59 @@ func (o *optionLoader) LoadClientConfig() *client.Config {
 	return a
 }
 
+// LoadApp returns an app.App reference - either as passed via OptionApp,
+// or newly constructed.
 func (o *optionLoader) LoadApp() app.App {
-	i := o.load(OptionApp)
-	if i == nil {
-		o.err = ErrNotInApp
+	untyped := o.loadOptional(OptionApp)
+	a, ok := untyped.(app.App)
+	if untyped != nil && !ok {
+		// App was provided but was invalid type
+		o.err = newInvalidOptionError(OptionApp)
+		return nil
+	}
+	if a != nil {
+		// Return app if a valid app.App was provided
+		return a
+	}
+
+	var fs = o.LoadFs()
+	if fs == nil {
+		o.err = errors.New("missing required fs reference")
+		return nil
+	}
+	var httpClient = o.LoadHTTPClient()
+	if httpClient == nil {
+		o.err = errors.New("initializing http client")
+		return nil
+	}
+	var appRoot = o.LoadOptionalString(OptionAppRoot)
+	if appRoot == "" {
+		// If no explict app root was provided, we search the current directory and its ancestors for a valid app.yaml.
+		var err error
+		cwd, err := os.Getwd()
+		if err != nil {
+			o.err = errors.Wrap(err, "getting current directory")
+			return nil
+		}
+
+		appRoot, err = app.FindRoot(fs, cwd)
+		if err != nil {
+			o.err = errors.Wrapf(err, "finding app root from starting path: %s", cwd)
+			return nil
+		}
+	}
+
+	a, err := app.Load(fs, httpClient, appRoot)
+	if err != nil {
+		o.err = errors.New("initializing app")
 		return nil
 	}
 
-	a, ok := i.(app.App)
-	if !ok {
-		o.err = newInvalidOptionError(OptionApp)
-		return nil
+	if !o.LoadOptionalBool(OptionSkipCheckUpgrade) {
+		if _, err := a.CheckUpgrade(); err != nil {
+			o.err = errors.Wrap(err, "checking for app upgrades")
+			return nil
+		}
 	}
 
 	return a
@@ -350,6 +399,12 @@ func (o *optionLoader) LoadApp() app.App {
 
 // LoadHTTPClient loads an HTTP client based on common configuration for certificates, tls verification, timeouts, etc.
 func (o *optionLoader) LoadHTTPClient() *http.Client {
+	untyped := o.loadOptional(OptionHTTPClient)
+	if c, ok := untyped.(*http.Client); ok {
+		return c
+	}
+
+	// Construct a client if none was passed
 	tlsSkipVerify := o.LoadOptionalBool(OptionTLSSkipVerify)
 
 	tlsConfig := &tls.Config{

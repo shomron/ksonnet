@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/ksonnet/ksonnet/pkg/actions"
-	"github.com/ksonnet/ksonnet/pkg/app"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -44,7 +43,7 @@ known ` + "`<registry-name>`" + ` like *incubator*). The output includes:
 `
 )
 
-func newPkgDescribeCmd(a app.App) *cobra.Command {
+func newPkgDescribeCmd() *cobra.Command {
 	pkgDescribeCmd := &cobra.Command{
 		Use:   "describe [<registry-name>/]<package-name>",
 		Short: pkgShortDesc["describe"],
@@ -55,7 +54,6 @@ func newPkgDescribeCmd(a app.App) *cobra.Command {
 			}
 
 			m := map[string]interface{}{
-				actions.OptionApp:           a,
 				actions.OptionPackageName:   args[0],
 				actions.OptionTLSSkipVerify: viper.GetBool(flagTLSSkipVerify),
 			}

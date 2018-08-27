@@ -95,7 +95,7 @@ func TestInit(t *testing.T) {
 					return nil
 				}
 
-				a.appLoadFn = func(fs afero.Fs, httpClient *http.Client, root string, skipFindRoot bool) (app.App, error) {
+				a.appLoadFn = func(fs afero.Fs, httpClient *http.Client, root string) (app.App, error) {
 					return appMock, nil
 				}
 

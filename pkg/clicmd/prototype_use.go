@@ -17,7 +17,6 @@ package clicmd
 
 import (
 	"github.com/ksonnet/ksonnet/pkg/actions"
-	"github.com/ksonnet/ksonnet/pkg/app"
 	"github.com/spf13/cobra"
 )
 
@@ -84,14 +83,14 @@ ks prototype use single-port-deployment nginx-depl \
 `
 )
 
-func newGenerateCmd(a app.App) *cobra.Command {
-	cmd := newPrototypeUseCmd(a)
+func newGenerateCmd() *cobra.Command {
+	cmd := newPrototypeUseCmd()
 	cmd.Use = "generate <prototype-name> <component-name> [type] [parameter-flags]"
 
 	return cmd
 }
 
-func newPrototypeUseCmd(a app.App) *cobra.Command {
+func newPrototypeUseCmd() *cobra.Command {
 	prototypeUseCmd := &cobra.Command{
 		Use:                "use <prototype-name> <componentName> [type] [parameter-flags]",
 		Short:              protoShortDesc["use"],
@@ -104,7 +103,6 @@ func newPrototypeUseCmd(a app.App) *cobra.Command {
 			}
 
 			m := map[string]interface{}{
-				actions.OptionApp:       a,
 				actions.OptionArguments: rawArgs,
 				// We don't pass flagTLSSkipVerify because flag parsing is disabled
 			}

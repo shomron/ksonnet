@@ -20,12 +20,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ksonnet/ksonnet/pkg/app"
 	"github.com/ksonnet/ksonnet/pkg/log"
 	"github.com/ksonnet/ksonnet/pkg/plugin"
-	"github.com/ksonnet/ksonnet/pkg/util/strings"
-	"github.com/pkg/errors"
-	"github.com/shomron/pflag"
 	"github.com/spf13/afero"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -80,83 +76,10 @@ func appRoot() (string, error) {
 	return os.Getwd()
 }
 
-type earlyParseArgs struct {
-	command       string
-	help          bool
-	tlsSkipVerify bool
-}
-
-// parseCommand does an early parse of the command line and returns
-// what will ultimately be recognized as the command by cobra
-// and a boolean for calling help flags.
-func parseCommand(args []string) (earlyParseArgs, error) {
-	var parsed earlyParseArgs
-	fset := pflag.NewFlagSet("", pflag.ContinueOnError)
-	fset.ParseErrorsWhitelist.UnknownFlags = true
-	fset.BoolVarP(&parsed.help, "help", "h", false, "") // Needed to avoid pflag.ErrHelp
-	fset.BoolVar(&parsed.tlsSkipVerify, flagTLSSkipVerify, false, "")
-	if err := fset.Parse(args); err != nil {
-		return earlyParseArgs{}, err
-	}
-	if len(fset.Args()) == 0 {
-		return earlyParseArgs{}, nil
-	}
-
-	parsed.command = fset.Args()[0]
-	return parsed, nil
-}
-
-// checkUpgrade runs upgrade validations unless the user is running an excluded command.
-// If upgrades are found to be necessary, they will be reported to the user.
-func checkUpgrade(a app.App, cmd string) error {
-	skip := map[string]struct{}{
-		"init":    struct{}{},
-		"upgrade": struct{}{},
-		"help":    struct{}{},
-		"version": struct{}{},
-		"":        struct{}{},
-	}
-	if _, ok := skip[cmd]; ok {
-		return nil
-	}
-
-	if a == nil {
-		return errors.Errorf("nil receiver")
-	}
-	_, _ = a.CheckUpgrade() // NOTE we're surpressing any validation errors here
-	return nil
-}
-
+// NewRoot constructs the root cobra command
 func NewRoot(appFs afero.Fs, wd string, args []string) (*cobra.Command, error) {
 	if appFs == nil {
 		appFs = afero.NewOsFs()
-	}
-
-	var a app.App
-
-	parsed, err := parseCommand(args)
-	if err != nil {
-		return nil, err
-	}
-	httpClient := app.NewHTTPClient(parsed.tlsSkipVerify)
-
-	cmds := []string{"init", "version", "help"}
-	switch {
-	// Commands that do not require a ksonnet application
-	case strings.InSlice(parsed.command, cmds), parsed.help:
-		a, err = app.Load(appFs, httpClient, wd, true)
-	case len(args) > 0:
-		a, err = app.Load(appFs, httpClient, wd, false)
-	default:
-		// noop
-	}
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := checkUpgrade(a, parsed.command); err != nil {
-		return nil, errors.Wrap(err, "checking if app needs upgrade")
 	}
 
 	rootCmd := &cobra.Command{
@@ -210,22 +133,22 @@ func NewRoot(appFs afero.Fs, wd string, args []string) (*cobra.Command, error) {
 	rootCmd.PersistentFlags().Bool(flagTLSSkipVerify, false, "Skip verification of TLS server certificates")
 	viper.BindPFlag(flagTLSSkipVerify, rootCmd.PersistentFlags().Lookup(flagTLSSkipVerify))
 
-	rootCmd.AddCommand(newApplyCmd(a))
-	rootCmd.AddCommand(newComponentCmd(a))
-	rootCmd.AddCommand(newDeleteCmd(a))
-	rootCmd.AddCommand(newDiffCmd(a))
-	rootCmd.AddCommand(newEnvCmd(a))
-	rootCmd.AddCommand(newGenerateCmd(a))
-	rootCmd.AddCommand(newImportCmd(a))
+	rootCmd.AddCommand(newApplyCmd(appFs))
+	rootCmd.AddCommand(newComponentCmd())
+	rootCmd.AddCommand(newDeleteCmd(appFs))
+	rootCmd.AddCommand(newDiffCmd(appFs))
+	rootCmd.AddCommand(newEnvCmd())
+	rootCmd.AddCommand(newGenerateCmd())
+	rootCmd.AddCommand(newImportCmd())
 	rootCmd.AddCommand(newInitCmd(appFs, wd))
-	rootCmd.AddCommand(newModuleCmd(a))
-	rootCmd.AddCommand(newParamCmd(a))
-	rootCmd.AddCommand(newPkgCmd(a))
-	rootCmd.AddCommand(newPrototypeCmd(a))
-	rootCmd.AddCommand(newRegistryCmd(a))
-	rootCmd.AddCommand(newShowCmd(a))
-	rootCmd.AddCommand(newValidateCmd(a))
-	rootCmd.AddCommand(newUpgradeCmd(a))
+	rootCmd.AddCommand(newModuleCmd())
+	rootCmd.AddCommand(newParamCmd())
+	rootCmd.AddCommand(newPkgCmd())
+	rootCmd.AddCommand(newPrototypeCmd())
+	rootCmd.AddCommand(newRegistryCmd())
+	rootCmd.AddCommand(newShowCmd(appFs))
+	rootCmd.AddCommand(newValidateCmd(appFs))
+	rootCmd.AddCommand(newUpgradeCmd())
 	rootCmd.AddCommand(newVersionCmd())
 
 	return rootCmd, nil

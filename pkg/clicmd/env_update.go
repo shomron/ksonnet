@@ -19,7 +19,6 @@ import (
 	"fmt"
 
 	"github.com/ksonnet/ksonnet/pkg/actions"
-	"github.com/ksonnet/ksonnet/pkg/app"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -42,7 +41,7 @@ The ` + "`update`" + ` command updates packages for an environment.
 ks env update us-west/staging`
 )
 
-func newEnvUpdateCmd(a app.App) *cobra.Command {
+func newEnvUpdateCmd() *cobra.Command {
 	envUpdateCmd := &cobra.Command{
 		Use:     "update <env-name>",
 		Short:   envShortDesc["update"],
@@ -54,7 +53,6 @@ func newEnvUpdateCmd(a app.App) *cobra.Command {
 			}
 
 			m := map[string]interface{}{
-				actions.OptionApp:           a,
 				actions.OptionEnvName:       args[0],
 				actions.OptionTLSSkipVerify: viper.GetBool(flagTLSSkipVerify),
 			}
